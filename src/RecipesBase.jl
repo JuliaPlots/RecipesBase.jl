@@ -34,6 +34,10 @@ function animate end
 # can add their own definition of RecipesBase.is_key_supported(k::Symbol)
 function is_key_supported end
 
+# a placeholder to establish the name so that other packages (Plots.jl for example)
+# can add their own definition of RecipesBase.group_as_matrix(t)
+group_as_matrix(t) = false
+
 # This holds the recipe definitions to be dispatched on
 # the function takes in an attribute dict `d` and a list of args.
 # This default definition specifies the "no-arg" case.
@@ -386,5 +390,11 @@ macro shorthands(funcname::Symbol)
         Core.@__doc__ $funcname2(args...; kw...) = RecipesBase.plot!(args...; kw..., seriestype = $(Meta.quot(funcname)))
     end)
 end
+
+#----------------------------------------------------------------------------
+
+# add type definitions for statistical type recipes, to allow usage without depending on StatPlots
+
+include("typedefs.jl")
 
 end # module
