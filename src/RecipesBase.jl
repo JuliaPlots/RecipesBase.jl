@@ -393,8 +393,13 @@ end
 
 #----------------------------------------------------------------------------
 
-# add type definitions for statistical type recipes, to allow usage without depending on StatPlots
+# allow usage of type recipes without depending on StatPlots
 
-include("typedefs.jl")
+recipetype(s, args...) = recipetype(Val(s), args...)
+
+function recipetype(s::Val{T}, args...) where T
+    error("No type recipe defined for type $t. You may need to load StatPlots")
+end
+
 
 end # module
