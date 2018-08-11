@@ -395,6 +395,25 @@ end
 
 # allow usage of type recipes without depending on StatPlots
 
+"""
+`recipetype(s, args...)`
+
+Use this function to refer to type recipes by their symbol, without taking a dependency.
+
+# Example
+
+```julia
+import RecipesBase: recipetype
+recipetype(:groupedbar, 1:10, rand(10, 2))
+```
+
+instead of
+
+```julia
+import StatPlots: GroupedBar
+GroupedBar((1:10, rand(10, 2)))
+```
+"""
 recipetype(s, args...) = recipetype(Val(s), args...)
 
 function recipetype(s::Val{T}, args...) where T
