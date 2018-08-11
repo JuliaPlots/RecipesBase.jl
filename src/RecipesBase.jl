@@ -398,7 +398,7 @@ end
 recipetype(s, args...) = recipetype(Val(s), args...)
 
 function recipetype(s::Val{T}, args...) where T
-    error("No type recipe defined for type $t. You may need to load StatPlots")
+    error("No type recipe defined for type $T. You may need to load StatPlots")
 end
 
 
