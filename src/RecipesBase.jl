@@ -51,7 +51,7 @@ end
 # this holds the data and attributes of one series, and is returned from apply_recipe
 struct RecipeData
     plotattributes::Dict{Symbol,Any}
-    args::Tuple
+    args::Vector{Any}
 end
 
 # --------------------------------------------------------------------------
@@ -59,8 +59,8 @@ end
 @inline to_symbol(s::Symbol) = s
 @inline to_symbol(qn::QuoteNode) = qn.value
 
-@inline wrap_tuple(tup::Tuple) = tup
-@inline wrap_tuple(v) = (v,)
+@inline wrap_tuple(tup::Tuple) = Any[tup...]
+@inline wrap_tuple(v) = Any[v]
 
 # check for flags as part of the `-->` expression
 function _is_arrow_tuple(expr::Expr)
@@ -273,7 +273,7 @@ macro recipe(funcexpr::Expr)
         $cleanup_body
         series_list = RecipesBase.RecipeData[]
         func_return = $func_body
-        if func_return != nothing
+        if func_return !== nothing
             push!(series_list, RecipesBase.RecipeData(plotattributes, RecipesBase.wrap_tuple(func_return)))
         end
         series_list
