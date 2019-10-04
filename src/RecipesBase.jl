@@ -375,10 +375,10 @@ Pass the series type (as a symbol) to the macro.
     # some implementation here
 end
 # docstrings are forwarded
-"""
+\"\"\"
     myseriestype(x, y)
 Plot my series type!
-"""
+\"\"\"
 @shorthands myseriestype
 ```
 """
