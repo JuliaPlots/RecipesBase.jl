@@ -364,7 +364,7 @@ end
 """
     @shorthands(funcname::Symbol)
 
-Defines and exports shorthand plotting method definitions (`$funcname` and `$funcname!`).
+Defines and exports shorthand plotting method definitions (`\$funcname` and `\$funcname!`).
 Pass the series type (as a symbol) to the macro.
 
 ## Examples
