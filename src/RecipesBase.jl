@@ -133,6 +133,7 @@ end
 # and we push this block onto the series_blocks list.
 # then at the end we push the main body onto the series list
 function process_recipe_body!(expr::Expr)
+    RB = @__MOD__
     for (i,e) in enumerate(expr.args)
         if isa(e,Expr)
 
@@ -172,15 +173,15 @@ function process_recipe_body!(expr::Expr)
                     :(plotattributes[$k] = $v)
                 else
                     # if the user has set this keyword, use theirs
-                    :(RecipesBase.is_explicit(plotattributes, $k) || (plotattributes[$k] = $v))
+                    :($(RB).is_explicit(plotattributes, $k) || (plotattributes[$k] = $v))
                 end
 
                 expr.args[i] = if quiet
                     # quietly ignore keywords which are not supported
-                    :(RecipesBase.is_key_supported($k) ? $set_expr : nothing)
+                    :($(RB).is_key_supported($k) ? $set_expr : nothing)
                 elseif require
                     # error when not supported by the backend
-                    :(RecipesBase.is_key_supported($k) ? $set_expr : error("In recipe: required keyword ", $k, " is not supported by backend $(backend_name())"))
+                    :($(RB).is_key_supported($k) ? $set_expr : error("In recipe: required keyword ", $k, " is not supported by backend $(backend_name())"))
                 else
                     set_expr
                 end
@@ -249,6 +250,9 @@ number of series to display.  User-defined keyword arguments are passed through,
 - force:   Don't allow user override for this keyword
 """
 macro recipe(funcexpr::Expr)
+       
+    RB = @__MOD__
+    
     func_signature, func_body = funcexpr.args
 
     if !(funcexpr.head in (:(=), :function))
@@ -277,14 +281,14 @@ macro recipe(funcexpr::Expr)
         end
         $kw_body
         $cleanup_body
-        series_list = RecipesBase.RecipeData[]
+        series_list = $RB.RecipeData[]
         func_return = $func_body
         if func_return != nothing
-            push!(series_list, RecipesBase.RecipeData(plotattributes, RecipesBase.wrap_tuple(func_return)))
+            push!(series_list, $RB.RecipeData(plotattributes, $RB.wrap_tuple(func_return)))
         end
         series_list
     end))
-    funcdef
+    return esc(funcdef)
 end
 
 
@@ -316,7 +320,7 @@ macro series(expr::Expr)
     esc(quote
         let plotattributes = copy(plotattributes)
             args = $expr
-            push!(series_list, RecipesBase.RecipeData(plotattributes, RecipesBase.wrap_tuple(args)))
+            push!(series_list, $(@__MOD__).RecipeData(plotattributes, RecipesBase.wrap_tuple(args)))
             nothing
         end
     end)
