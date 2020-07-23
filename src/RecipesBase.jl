@@ -6,7 +6,7 @@ export
     @series,
     @userplot,
     @shorthands,
-    @shorthands_fixed_letter,
+    @one_arg_shorthands,
     RecipeData,
     AbstractBackend,
     AbstractPlot,
