@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Internals · RecipesBase.jl</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">RecipesBase.jl</span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../syntax/">Recipe Syntax</a></li><li><a class="tocitem" href="../types/">Recipe Types</a></li><li class="is-active"><a class="tocitem" href>Internals</a><ul class="internal"><li><a class="tocitem" href="#RecipesBase"><span>RecipesBase</span></a></li><li><a class="tocitem" href="#Plots"><span>Plots</span></a></li></ul></li><li><a class="tocitem" href="../api/">Library</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Internals</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Internals</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/JuliaPlots/RecipesBase.jl/blob/master/docs/src/internals.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h2 id="RecipesBase"><a class="docs-heading-anchor" href="#RecipesBase">RecipesBase</a><a id="RecipesBase-1"></a><a class="docs-heading-anchor-permalink" href="#RecipesBase" title="Permalink"></a></h2><p>The <a href="../api/#RecipesBase.@recipe-Tuple{Expr}"><code>@recipe</code></a> macro defines a new method for <code>RecipesBase.apply_recipe</code>.</p><pre><code class="language-julia">@recipe function f(args...; kwargs...)</code></pre><p>defines</p><pre><code class="language-julia">RecipesBase.apply_recipe(plotattributes, args...; kwargs...)</code></pre><p>returning a <code>Vector{RecipeData}</code> where <code>RecipeData</code> holds the <code>plotattributes</code> Dict and the arguments returned in <a href="../api/#RecipesBase.@recipe-Tuple{Expr}"><code>@recipe</code></a> or in <a href="../api/#RecipesBase.@series-Tuple{Expr}"><code>@series</code></a>.</p><pre><code class="language-none">struct RecipeData
+    plotattributes::AbstractDict{Symbol,Any}
+    args::Tuple
+end</code></pre><p>This function sets and overwrites entries in <code>plotattributes</code> and possibly adds new series.</p><ul><li><code>attr --&gt; val</code> translates to <code>haskey(plotattributes, :attr) || plotattributes[:attr] = val</code></li><li><code>attr := val</code> sets <code>plotattributes[:attr] = val</code>.</li><li><a href="../api/#RecipesBase.@series-Tuple{Expr}"><code>@series</code></a> allows to add new series within <a href="../api/#RecipesBase.@recipe-Tuple{Expr}"><code>@recipe</code></a>. It copies <code>plotattributes</code> from <a href="../api/#RecipesBase.@recipe-Tuple{Expr}"><code>@recipe</code></a>, applies the replacements defined in its code block and returns corresponding new <code>RecipeData</code> object.   !!! info       <a href="../api/#RecipesBase.@series-Tuple{Expr}"><code>@series</code></a> have to be defined as a code block with <code>begin</code> and <code>end</code> statements.       <code>julia       @series begin           ...       end</code></li></ul><p>So <code>RecipesBase.apply_recipe(plotattributes, args...; kwargs...)</code> returns a <code>Vector{RecipeData}</code>. Plots can then recursively apply it again on the <code>plotattributes</code> and <code>args</code> of the elements of this vector, dispatching on a different signature.</p><h2 id="Plots"><a class="docs-heading-anchor" href="#Plots">Plots</a><a id="Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Plots" title="Permalink"></a></h2><p>The standard plotting commands</p><pre><code class="language-julia">plot(args...; plotattributes...)
+plot!(args...; plotattributes...)</code></pre><p>and shorthands like <code>scatter</code> or <code>bar</code> call the core internal plotting function <code>Plots._plot!</code>.</p><pre><code class="language-julia">Plots._plot!(plt::Plot, plotattributes::AbstractDict{Symbol, Any}, args::Tuple)</code></pre><p>In the following we will go through the major steps of the preprocessing pipeline implemented in <code>Plots._plot!</code>.</p><h4 id="Preprocess-plotattributes"><a class="docs-heading-anchor" href="#Preprocess-plotattributes">Preprocess <code>plotattributes</code></a><a id="Preprocess-plotattributes-1"></a><a class="docs-heading-anchor-permalink" href="#Preprocess-plotattributes" title="Permalink"></a></h4><p>Before <code>Plots._plot!</code> is called and after each recipe is applied, <code>preprocessArgs!</code>  preprocesses the <code>plotattributes</code> Dict. It replaces aliases, expands magic arguments, and converts some attribute types.</p><ul><li><code>lc = nothing</code> is replaced by <code>linecolor = RGBA(0, 0, 0, 0)</code>.</li><li><code>marker = (:red, :circle, 8)</code> expands to <code>markercolor = :red</code>, <code>markershape = :circle</code> and <code>markersize = 8</code>.</li></ul><h4 id="Process-User-Recipes"><a class="docs-heading-anchor" href="#Process-User-Recipes">Process User Recipes</a><a id="Process-User-Recipes-1"></a><a class="docs-heading-anchor-permalink" href="#Process-User-Recipes" title="Permalink"></a></h4><p>In the first step, <code>_process_userrecipe</code> is called.</p><pre><code class="language-julia">kw_list = _process_userrecipes(plt, plotattributes, args)</code></pre><p>It converts the user-provided <code>plotattributes</code> to a vector of <code>RecipeData</code>. It recursively applies <code>RecipesBase.apply_recipe</code> on the fields of the first element of the <code>RecipeData</code> vector and prepends the resulting <code>RecipeData</code> vector to it. If the <code>args</code> of an element are empty, it extracts <code>plotattributes</code> and adds it to a Vector of Dicts <code>kw_list</code>. When all <code>RecipeData</code> elements are fully processed, <code>kw_list</code> is returned.</p><h4 id="Process-Type-Recipes"><a class="docs-heading-anchor" href="#Process-Type-Recipes">Process Type Recipes</a><a id="Process-Type-Recipes-1"></a><a class="docs-heading-anchor-permalink" href="#Process-Type-Recipes" title="Permalink"></a></h4><p>After user recipes are processed, at some point in the recursion above args is of the form <code>(y, )</code>, <code>(x, y)</code> or <code>(x, y, z)</code>. Plots defines recipes for these signatures. The two argument version, for example, looks like this.</p><pre><code class="language-julia">@recipe function f(x, y)
+    did_replace = false
+    newx = _apply_type_recipe(plotattributes, x)
+    x === newx || (did_replace = true)
+    newy = _apply_type_recipe(plotattributes, y)
+    y === newy || (did_replace = true)
+    if did_replace
+        newx, newy
+    else
+        SliceIt, x, y, nothing
+    end
+end</code></pre><p>It recursively calls <code>_apply_type_recipe</code> on each argument until none of the arguments is replaced. <code>_apply_type_recipe</code> applies the type recipe with the corresponding signature and for vectors it tries to apply the recipe element-wise. When no argument is changed by <code>_apply_type_recipe</code>, the fallback <code>SliceIt</code> recipe is applied, which adds the data to <code>plotattributes</code> and returns <code>RecipeData</code> with empty args.</p><h4 id="Process-Plot-Recipes"><a class="docs-heading-anchor" href="#Process-Plot-Recipes">Process Plot Recipes</a><a id="Process-Plot-Recipes-1"></a><a class="docs-heading-anchor-permalink" href="#Process-Plot-Recipes" title="Permalink"></a></h4><p>At this stage all arguments have been processed to something Plots supports. In <code>_plot!</code> we have a <code>Vector{Dict}</code> <code>kw_list</code> with an entry for each series and already populated <code>:x</code>, <code>:y</code> and <code>:z</code> keys. Now <code>_process_plotrecipe</code> is called until all plot recipes are processed.</p><pre><code class="language-julia">still_to_process = kw_list
+kw_list = KW[]
+while !isempty(still_to_process)
+    next_kw = popfirst!(still_to_process)
+    _process_plotrecipe(plt, next_kw, kw_list, still_to_process)
+end</code></pre><p>If no series type is set in the Dict, <code>_process_plotrecipe</code> pushes it to <code>kw_list</code> and returns. Otherwise it tries to call <code>RecipesBase.apply_recipe</code> with the plot recipe signature. If there is a method for this signature and the seriestype has changed by applying the recipe, the new <code>plotattributes</code> are appended to <code>still_to_process</code>. If there is no method for the current plot recipe signature, we append the current Dict to <code>kw_list</code> and rely on series recipe processing.</p><p>After all plot recipes have been applied, the plot and subplots are set-up.</p><pre><code class="language-julia">_plot_setup(plt, plotattributes, kw_list)
+_subplot_setup(plt, plotattributes, kw_list)</code></pre><h4 id="Process-Series-Recipes"><a class="docs-heading-anchor" href="#Process-Series-Recipes">Process Series Recipes</a><a id="Process-Series-Recipes-1"></a><a class="docs-heading-anchor-permalink" href="#Process-Series-Recipes" title="Permalink"></a></h4><p>We are almost finished. Now the series defaults are populated and <code>_process_seriesrecipe</code> is called for each series .</p><pre><code class="language-julia">for kw in kw_list
+    # merge defaults
+    series_attr = Attr(kw, _series_defaults)
+    _process_seriesrecipe(plt, series_attr)
+end</code></pre><p>If the series type is natively supported by the backend, we finalize processing and pass the series along to the backend. Otherwise, the series recipe for the current series type is applied and <code>_process_seriesrecipe</code> is called again for the <code>plotattributes</code> in each returned <code>RecipeData</code> object. Here we have to check again that the series type changed. Due to this recursive processing, complex series types can be built up by simple blocks. For example if we add an <code>@show st</code> in <code>_process_seriesrecipe</code> and plot a histogram, we go through the following series types:</p><pre><code class="language-julia">plot(histogram(randn(1000)))</code></pre><pre><code class="language-julia">st = :histogram
+st = :barhist
+st = :barbins
+st = :bar
+st = :shape</code></pre><?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="600" height="400" viewBox="0 0 2400 1600">
+<defs>
+  <clipPath id="clip280">
+    <rect x="0" y="0" width="2400" height="1600"/>
+  </clipPath>
+</defs>
+<path clip-path="url(#clip280)" d="
+M0 1600 L2400 1600 L2400 0 L0 0  Z
+  " fill="#ffffff" fill-rule="evenodd" fill-opacity="1"/>
+<defs>
+  <clipPath id="clip281">
+    <rect x="480" y="0" width="1681" height="1600"/>
+  </clipPath>
+</defs>
+<path clip-path="url(#clip280)" d="
+M162.964 1486.45 L2352.76 1486.45 L2352.76 47.2441 L162.964 47.2441  Z
+  " fill="#ffffff" fill-rule="evenodd" fill-opacity="1"/>
+<defs>
+  <clipPath id="clip282">
+    <rect x="162" y="47" width="2191" height="1440"/>
+  </clipPath>
+</defs>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  422.614,1486.45 422.614,47.2441 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  701.029,1486.45 701.029,47.2441 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  979.445,1486.45 979.445,47.2441 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  1257.86,1486.45 1257.86,47.2441 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  1536.28,1486.45 1536.28,47.2441 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  1814.69,1486.45 1814.69,47.2441 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  2093.11,1486.45 2093.11,47.2441 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  162.964,1445.72 2352.76,1445.72 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  162.964,1101.11 2352.76,1101.11 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  162.964,756.508 2352.76,756.508 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  162.964,411.904 2352.76,411.904 
+  "/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:2; stroke-opacity:0.1; fill:none" points="
+  162.964,67.3 2352.76,67.3 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  162.964,1486.45 2352.76,1486.45 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  162.964,1486.45 162.964,47.2441 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  422.614,1486.45 422.614,1469.18 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  701.029,1486.45 701.029,1469.18 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  979.445,1486.45 979.445,1469.18 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1257.86,1486.45 1257.86,1469.18 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1536.28,1486.45 1536.28,1469.18 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1814.69,1486.45 1814.69,1469.18 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  2093.11,1486.45 2093.11,1469.18 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  162.964,1445.72 189.241,1445.72 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  162.964,1101.11 189.241,1101.11 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  162.964,756.508 189.241,756.508 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  162.964,411.904 189.241,411.904 
+  "/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  162.964,67.3 189.241,67.3 
+  "/>
+<path clip-path="url(#clip280)" d="M 0 0 M394.593 1523.09 L424.269 1523.09 L424.269 1527.03 L394.593 1527.03 L394.593 1523.09 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M443.505 1521.29 Q446.862 1522 448.737 1524.27 Q450.635 1526.54 450.635 1529.87 Q450.635 1534.99 447.116 1537.79 Q443.598 1540.59 437.116 1540.59 Q434.94 1540.59 432.626 1540.15 Q430.334 1539.73 427.88 1538.88 L427.88 1534.36 Q429.825 1535.5 432.139 1536.08 Q434.454 1536.66 436.977 1536.66 Q441.376 1536.66 443.667 1534.92 Q445.982 1533.18 445.982 1529.87 Q445.982 1526.82 443.829 1525.11 Q441.7 1523.37 437.88 1523.37 L433.852 1523.37 L433.852 1519.53 L438.065 1519.53 Q441.514 1519.53 443.343 1518.16 Q445.172 1516.77 445.172 1514.18 Q445.172 1511.52 443.274 1510.11 Q441.399 1508.67 437.88 1508.67 Q435.959 1508.67 433.76 1509.09 Q431.561 1509.5 428.922 1510.38 L428.922 1506.22 Q431.584 1505.48 433.899 1505.11 Q436.237 1504.73 438.297 1504.73 Q443.621 1504.73 446.723 1507.17 Q449.825 1509.57 449.825 1513.69 Q449.825 1516.56 448.181 1518.55 Q446.538 1520.52 443.505 1521.29 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M673.483 1523.09 L703.159 1523.09 L703.159 1527.03 L673.483 1527.03 L673.483 1523.09 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M712.256 1535.98 L728.575 1535.98 L728.575 1539.92 L706.631 1539.92 L706.631 1535.98 Q709.293 1533.23 713.876 1528.6 Q718.483 1523.95 719.663 1522.61 Q721.909 1520.08 722.788 1518.35 Q723.691 1516.59 723.691 1514.9 Q723.691 1512.14 721.747 1510.41 Q719.826 1508.67 716.724 1508.67 Q714.525 1508.67 712.071 1509.43 Q709.64 1510.2 706.863 1511.75 L706.863 1507.03 Q709.687 1505.89 712.14 1505.31 Q714.594 1504.73 716.631 1504.73 Q722.001 1504.73 725.196 1507.42 Q728.39 1510.11 728.39 1514.6 Q728.39 1516.73 727.58 1518.65 Q726.793 1520.54 724.687 1523.14 Q724.108 1523.81 721.006 1527.03 Q717.904 1530.22 712.256 1535.98 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M951.713 1523.09 L981.389 1523.09 L981.389 1527.03 L951.713 1527.03 L951.713 1523.09 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M987.269 1535.98 L994.908 1535.98 L994.908 1509.62 L986.597 1511.29 L986.597 1507.03 L994.861 1505.36 L999.537 1505.36 L999.537 1535.98 L1007.18 1535.98 L1007.18 1539.92 L987.269 1539.92 L987.269 1535.98 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M1257.86 1508.44 Q1254.25 1508.44 1252.42 1512 Q1250.61 1515.55 1250.61 1522.67 Q1250.61 1529.78 1252.42 1533.35 Q1254.25 1536.89 1257.86 1536.89 Q1261.49 1536.89 1263.3 1533.35 Q1265.13 1529.78 1265.13 1522.67 Q1265.13 1515.55 1263.3 1512 Q1261.49 1508.44 1257.86 1508.44 M1257.86 1504.73 Q1263.67 1504.73 1266.73 1509.34 Q1269.8 1513.92 1269.8 1522.67 Q1269.8 1531.4 1266.73 1536.01 Q1263.67 1540.59 1257.86 1540.59 Q1252.05 1540.59 1248.97 1536.01 Q1245.92 1531.4 1245.92 1522.67 Q1245.92 1513.92 1248.97 1509.34 Q1252.05 1504.73 1257.86 1504.73 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M1526.66 1535.98 L1534.3 1535.98 L1534.3 1509.62 L1525.99 1511.29 L1525.99 1507.03 L1534.25 1505.36 L1538.93 1505.36 L1538.93 1535.98 L1546.56 1535.98 L1546.56 1539.92 L1526.66 1539.92 L1526.66 1535.98 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M1809.34 1535.98 L1825.66 1535.98 L1825.66 1539.92 L1803.72 1539.92 L1803.72 1535.98 Q1806.38 1533.23 1810.96 1528.6 Q1815.57 1523.95 1816.75 1522.61 Q1819 1520.08 1819.88 1518.35 Q1820.78 1516.59 1820.78 1514.9 Q1820.78 1512.14 1818.83 1510.41 Q1816.91 1508.67 1813.81 1508.67 Q1811.61 1508.67 1809.16 1509.43 Q1806.73 1510.2 1803.95 1511.75 L1803.95 1507.03 Q1806.77 1505.89 1809.23 1505.31 Q1811.68 1504.73 1813.72 1504.73 Q1819.09 1504.73 1822.28 1507.42 Q1825.48 1510.11 1825.48 1514.6 Q1825.48 1516.73 1824.67 1518.65 Q1823.88 1520.54 1821.77 1523.14 Q1821.2 1523.81 1818.09 1527.03 Q1814.99 1530.22 1809.34 1535.98 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M2097.35 1521.29 Q2100.71 1522 2102.58 1524.27 Q2104.48 1526.54 2104.48 1529.87 Q2104.48 1534.99 2100.96 1537.79 Q2097.45 1540.59 2090.96 1540.59 Q2088.79 1540.59 2086.47 1540.15 Q2084.18 1539.73 2081.73 1538.88 L2081.73 1534.36 Q2083.67 1535.5 2085.99 1536.08 Q2088.3 1536.66 2090.83 1536.66 Q2095.22 1536.66 2097.52 1534.92 Q2099.83 1533.18 2099.83 1529.87 Q2099.83 1526.82 2097.68 1525.11 Q2095.55 1523.37 2091.73 1523.37 L2087.7 1523.37 L2087.7 1519.53 L2091.91 1519.53 Q2095.36 1519.53 2097.19 1518.16 Q2099.02 1516.77 2099.02 1514.18 Q2099.02 1511.52 2097.12 1510.11 Q2095.25 1508.67 2091.73 1508.67 Q2089.81 1508.67 2087.61 1509.09 Q2085.41 1509.5 2082.77 1510.38 L2082.77 1506.22 Q2085.43 1505.48 2087.75 1505.11 Q2090.08 1504.73 2092.15 1504.73 Q2097.47 1504.73 2100.57 1507.17 Q2103.67 1509.57 2103.67 1513.69 Q2103.67 1516.56 2102.03 1518.55 Q2100.39 1520.52 2097.35 1521.29 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M127.02 1431.51 Q123.408 1431.51 121.58 1435.08 Q119.774 1438.62 119.774 1445.75 Q119.774 1452.86 121.58 1456.42 Q123.408 1459.96 127.02 1459.96 Q130.654 1459.96 132.459 1456.42 Q134.288 1452.86 134.288 1445.75 Q134.288 1438.62 132.459 1435.08 Q130.654 1431.51 127.02 1431.51 M127.02 1427.81 Q132.83 1427.81 135.885 1432.42 Q138.964 1437 138.964 1445.75 Q138.964 1454.48 135.885 1459.08 Q132.83 1463.67 127.02 1463.67 Q121.209 1463.67 118.131 1459.08 Q115.075 1454.48 115.075 1445.75 Q115.075 1437 118.131 1432.42 Q121.209 1427.81 127.02 1427.81 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M91.0475 1083.83 L109.404 1083.83 L109.404 1087.77 L95.3299 1087.77 L95.3299 1096.24 Q96.3484 1095.89 97.3669 1095.73 Q98.3855 1095.54 99.404 1095.54 Q105.191 1095.54 108.571 1098.72 Q111.95 1101.89 111.95 1107.3 Q111.95 1112.88 108.478 1115.98 Q105.006 1119.06 98.6864 1119.06 Q96.5105 1119.06 94.242 1118.69 Q91.9966 1118.32 89.5892 1117.58 L89.5892 1112.88 Q91.6725 1114.02 93.8947 1114.57 Q96.1169 1115.13 98.5938 1115.13 Q102.598 1115.13 104.936 1113.02 Q107.274 1110.91 107.274 1107.3 Q107.274 1103.69 104.936 1101.59 Q102.598 1099.48 98.5938 1099.48 Q96.7188 1099.48 94.8438 1099.9 Q92.992 1100.31 91.0475 1101.19 L91.0475 1083.83 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M127.02 1086.91 Q123.408 1086.91 121.58 1090.48 Q119.774 1094.02 119.774 1101.15 Q119.774 1108.25 121.58 1111.82 Q123.408 1115.36 127.02 1115.36 Q130.654 1115.36 132.459 1111.82 Q134.288 1108.25 134.288 1101.15 Q134.288 1094.02 132.459 1090.48 Q130.654 1086.91 127.02 1086.91 M127.02 1083.21 Q132.83 1083.21 135.885 1087.81 Q138.964 1092.4 138.964 1101.15 Q138.964 1109.87 135.885 1114.48 Q132.83 1119.06 127.02 1119.06 Q121.209 1119.06 118.131 1114.48 Q115.075 1109.87 115.075 1101.15 Q115.075 1092.4 118.131 1087.81 Q121.209 1083.21 127.02 1083.21 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M65.0292 769.853 L72.668 769.853 L72.668 743.487 L64.3579 745.154 L64.3579 740.895 L72.6217 739.228 L77.2976 739.228 L77.2976 769.853 L84.9365 769.853 L84.9365 773.788 L65.0292 773.788 L65.0292 769.853 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M100.006 742.307 Q96.3947 742.307 94.566 745.871 Q92.7605 749.413 92.7605 756.543 Q92.7605 763.649 94.566 767.214 Q96.3947 770.755 100.006 770.755 Q103.64 770.755 105.446 767.214 Q107.274 763.649 107.274 756.543 Q107.274 749.413 105.446 745.871 Q103.64 742.307 100.006 742.307 M100.006 738.603 Q105.816 738.603 108.872 743.209 Q111.95 747.793 111.95 756.543 Q111.95 765.269 108.872 769.876 Q105.816 774.459 100.006 774.459 Q94.1957 774.459 91.117 769.876 Q88.0614 765.269 88.0614 756.543 Q88.0614 747.793 91.117 743.209 Q94.1957 738.603 100.006 738.603 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M127.02 742.307 Q123.408 742.307 121.58 745.871 Q119.774 749.413 119.774 756.543 Q119.774 763.649 121.58 767.214 Q123.408 770.755 127.02 770.755 Q130.654 770.755 132.459 767.214 Q134.288 763.649 134.288 756.543 Q134.288 749.413 132.459 745.871 Q130.654 742.307 127.02 742.307 M127.02 738.603 Q132.83 738.603 135.885 743.209 Q138.964 747.793 138.964 756.543 Q138.964 765.269 135.885 769.876 Q132.83 774.459 127.02 774.459 Q121.209 774.459 118.131 769.876 Q115.075 765.269 115.075 756.543 Q115.075 747.793 118.131 743.209 Q121.209 738.603 127.02 738.603 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M66.0245 425.249 L73.6634 425.249 L73.6634 398.883 L65.3532 400.55 L65.3532 396.291 L73.6171 394.624 L78.293 394.624 L78.293 425.249 L85.9318 425.249 L85.9318 429.184 L66.0245 429.184 L66.0245 425.249 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M91.0475 394.624 L109.404 394.624 L109.404 398.559 L95.3299 398.559 L95.3299 407.031 Q96.3484 406.684 97.3669 406.522 Q98.3855 406.337 99.404 406.337 Q105.191 406.337 108.571 409.508 Q111.95 412.679 111.95 418.096 Q111.95 423.675 108.478 426.777 Q105.006 429.855 98.6864 429.855 Q96.5105 429.855 94.242 429.485 Q91.9966 429.115 89.5892 428.374 L89.5892 423.675 Q91.6725 424.809 93.8947 425.365 Q96.1169 425.92 98.5938 425.92 Q102.598 425.92 104.936 423.814 Q107.274 421.707 107.274 418.096 Q107.274 414.485 104.936 412.378 Q102.598 410.272 98.5938 410.272 Q96.7188 410.272 94.8438 410.689 Q92.992 411.105 91.0475 411.985 L91.0475 394.624 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M127.02 397.703 Q123.408 397.703 121.58 401.267 Q119.774 404.809 119.774 411.939 Q119.774 419.045 121.58 422.61 Q123.408 426.152 127.02 426.152 Q130.654 426.152 132.459 422.61 Q134.288 419.045 134.288 411.939 Q134.288 404.809 132.459 401.267 Q130.654 397.703 127.02 397.703 M127.02 393.999 Q132.83 393.999 135.885 398.605 Q138.964 403.189 138.964 411.939 Q138.964 420.665 135.885 425.272 Q132.83 429.855 127.02 429.855 Q121.209 429.855 118.131 425.272 Q115.075 420.665 115.075 411.939 Q115.075 403.189 118.131 398.605 Q121.209 393.999 127.02 393.999 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M68.6171 80.6449 L84.9365 80.6449 L84.9365 84.58 L62.9921 84.58 L62.9921 80.6449 Q65.6541 77.8903 70.2375 73.2607 Q74.8439 68.6079 76.0245 67.2653 Q78.2698 64.7422 79.1494 63.0061 Q80.0522 61.2468 80.0522 59.557 Q80.0522 56.8024 78.1078 55.0663 Q76.1865 53.3302 73.0847 53.3302 Q70.8856 53.3302 68.4319 54.0941 Q66.0014 54.858 63.2236 56.4089 L63.2236 51.6867 Q66.0477 50.5524 68.5014 49.9737 Q70.955 49.395 72.9921 49.395 Q78.3624 49.395 81.5568 52.0802 Q84.7513 54.7654 84.7513 59.2561 Q84.7513 61.3857 83.9411 63.307 Q83.1541 65.2051 81.0476 67.7977 Q80.4689 68.469 77.367 71.6866 Q74.2652 74.881 68.6171 80.6449 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M100.006 53.0987 Q96.3947 53.0987 94.566 56.6635 Q92.7605 60.2052 92.7605 67.3348 Q92.7605 74.4412 94.566 78.006 Q96.3947 81.5477 100.006 81.5477 Q103.64 81.5477 105.446 78.006 Q107.274 74.4412 107.274 67.3348 Q107.274 60.2052 105.446 56.6635 Q103.64 53.0987 100.006 53.0987 M100.006 49.395 Q105.816 49.395 108.872 54.0015 Q111.95 58.5848 111.95 67.3348 Q111.95 76.0616 108.872 80.668 Q105.816 85.2513 100.006 85.2513 Q94.1957 85.2513 91.117 80.668 Q88.0614 76.0616 88.0614 67.3348 Q88.0614 58.5848 91.117 54.0015 Q94.1957 49.395 100.006 49.395 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M127.02 53.0987 Q123.408 53.0987 121.58 56.6635 Q119.774 60.2052 119.774 67.3348 Q119.774 74.4412 121.58 78.006 Q123.408 81.5477 127.02 81.5477 Q130.654 81.5477 132.459 78.006 Q134.288 74.4412 134.288 67.3348 Q134.288 60.2052 132.459 56.6635 Q130.654 53.0987 127.02 53.0987 M127.02 49.395 Q132.83 49.395 135.885 54.0015 Q138.964 58.5848 138.964 67.3348 Q138.964 76.0616 135.885 80.668 Q132.83 85.2513 127.02 85.2513 Q121.209 85.2513 118.131 80.668 Q115.075 76.0616 115.075 67.3348 Q115.075 58.5848 118.131 54.0015 Q121.209 49.395 127.02 49.395 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip282)" d="
+M283.406 1438.82 L283.406 1445.72 L422.614 1445.72 L422.614 1438.82 L283.406 1438.82 L283.406 1438.82  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  283.406,1438.82 283.406,1445.72 422.614,1445.72 422.614,1438.82 283.406,1438.82 
+  "/>
+<path clip-path="url(#clip282)" d="
+M422.614 1425.04 L422.614 1445.72 L561.822 1445.72 L561.822 1425.04 L422.614 1425.04 L422.614 1425.04  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  422.614,1425.04 422.614,1445.72 561.822,1445.72 561.822,1425.04 422.614,1425.04 
+  "/>
+<path clip-path="url(#clip282)" d="
+M561.822 1356.12 L561.822 1445.72 L701.029 1445.72 L701.029 1356.12 L561.822 1356.12 L561.822 1356.12  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  561.822,1356.12 561.822,1445.72 701.029,1445.72 701.029,1356.12 561.822,1356.12 
+  "/>
+<path clip-path="url(#clip282)" d="
+M701.029 1073.54 L701.029 1445.72 L840.237 1445.72 L840.237 1073.54 L701.029 1073.54 L701.029 1073.54  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  701.029,1073.54 701.029,1445.72 840.237,1445.72 840.237,1073.54 701.029,1073.54 
+  "/>
+<path clip-path="url(#clip282)" d="
+M840.237 846.105 L840.237 1445.72 L979.445 1445.72 L979.445 846.105 L840.237 846.105 L840.237 846.105  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  840.237,846.105 840.237,1445.72 979.445,1445.72 979.445,846.105 840.237,846.105 
+  "/>
+<path clip-path="url(#clip282)" d="
+M979.445 349.875 L979.445 1445.72 L1118.65 1445.72 L1118.65 349.875 L979.445 349.875 L979.445 349.875  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  979.445,349.875 979.445,1445.72 1118.65,1445.72 1118.65,349.875 979.445,349.875 
+  "/>
+<path clip-path="url(#clip282)" d="
+M1118.65 156.897 L1118.65 1445.72 L1257.86 1445.72 L1257.86 156.897 L1118.65 156.897 L1118.65 156.897  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1118.65,156.897 1118.65,1445.72 1257.86,1445.72 1257.86,156.897 1118.65,156.897 
+  "/>
+<path clip-path="url(#clip282)" d="
+M1257.86 87.9763 L1257.86 1445.72 L1397.07 1445.72 L1397.07 87.9763 L1257.86 87.9763 L1257.86 87.9763  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1257.86,87.9763 1257.86,1445.72 1397.07,1445.72 1397.07,87.9763 1257.86,87.9763 
+  "/>
+<path clip-path="url(#clip282)" d="
+M1397.07 432.58 L1397.07 1445.72 L1536.28 1445.72 L1536.28 432.58 L1397.07 432.58 L1397.07 432.58  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1397.07,432.58 1397.07,1445.72 1536.28,1445.72 1536.28,432.58 1397.07,432.58 
+  "/>
+<path clip-path="url(#clip282)" d="
+M1536.28 894.349 L1536.28 1445.72 L1675.48 1445.72 L1675.48 894.349 L1536.28 894.349 L1536.28 894.349  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1536.28,894.349 1536.28,1445.72 1675.48,1445.72 1675.48,894.349 1536.28,894.349 
+  "/>
+<path clip-path="url(#clip282)" d="
+M1675.48 1128.68 L1675.48 1445.72 L1814.69 1445.72 L1814.69 1128.68 L1675.48 1128.68 L1675.48 1128.68  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1675.48,1128.68 1675.48,1445.72 1814.69,1445.72 1814.69,1128.68 1675.48,1128.68 
+  "/>
+<path clip-path="url(#clip282)" d="
+M1814.69 1328.55 L1814.69 1445.72 L1953.9 1445.72 L1953.9 1328.55 L1814.69 1328.55 L1814.69 1328.55  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1814.69,1328.55 1814.69,1445.72 1953.9,1445.72 1953.9,1328.55 1814.69,1328.55 
+  "/>
+<path clip-path="url(#clip282)" d="
+M1953.9 1411.26 L1953.9 1445.72 L2093.11 1445.72 L2093.11 1411.26 L1953.9 1411.26 L1953.9 1411.26  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1953.9,1411.26 1953.9,1445.72 2093.11,1445.72 2093.11,1411.26 1953.9,1411.26 
+  "/>
+<path clip-path="url(#clip282)" d="
+M2093.11 1418.15 L2093.11 1445.72 L2232.31 1445.72 L2232.31 1418.15 L2093.11 1418.15 L2093.11 1418.15  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip282)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  2093.11,1418.15 2093.11,1445.72 2232.31,1445.72 2232.31,1418.15 2093.11,1418.15 
+  "/>
+<path clip-path="url(#clip280)" d="
+M1985.43 216.178 L2279.76 216.178 L2279.76 95.2176 L1985.43 95.2176  Z
+  " fill="#ffffff" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  1985.43,216.178 2279.76,216.178 2279.76,95.2176 1985.43,95.2176 1985.43,216.178 
+  "/>
+<path clip-path="url(#clip280)" d="
+M2009.77 179.89 L2155.75 179.89 L2155.75 131.506 L2009.77 131.506 L2009.77 179.89  Z
+  " fill="#009af9" fill-rule="evenodd" fill-opacity="1"/>
+<polyline clip-path="url(#clip280)" style="stroke:#000000; stroke-width:4; stroke-opacity:1; fill:none" points="
+  2009.77,179.89 2155.75,179.89 2155.75,131.506 2009.77,131.506 2009.77,179.89 
+  "/>
+<path clip-path="url(#clip280)" d="M 0 0 M2193.93 175.385 Q2192.12 180.015 2190.41 181.427 Q2188.69 182.839 2185.82 182.839 L2182.42 182.839 L2182.42 179.274 L2184.92 179.274 Q2186.68 179.274 2187.65 178.44 Q2188.62 177.607 2189.8 174.505 L2190.57 172.561 L2180.08 147.052 L2184.6 147.052 L2192.7 167.329 L2200.8 147.052 L2205.31 147.052 L2193.93 175.385 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /><path clip-path="url(#clip280)" d="M 0 0 M2211.19 169.042 L2218.83 169.042 L2218.83 142.677 L2210.52 144.343 L2210.52 140.084 L2218.79 138.418 L2223.46 138.418 L2223.46 169.042 L2231.1 169.042 L2231.1 172.978 L2211.19 172.978 L2211.19 169.042 Z" fill="#000000" fill-rule="evenodd" fill-opacity="1" /></svg>
+</article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../types/">« Recipe Types</a><a class="docs-footer-nextpage" href="../api/">Library »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 9 September 2020 12:16">Wednesday 9 September 2020</span>. Using Julia version 1.4.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
