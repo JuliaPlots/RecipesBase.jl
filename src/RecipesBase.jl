@@ -223,7 +223,7 @@ An example:
 using RecipesBase
 
 # Our custom type that we want to display
-type T end
+struct T end
 
 @recipe function plot{N<:Integer}(t::T, n::N = 1; customcolor = :green)
     markershape --> :auto, :require
