@@ -1,5 +1,6 @@
-
 module RecipesBase
+
+using SnoopPrecompile
 
 export
     @recipe,
@@ -579,7 +580,7 @@ You can use the `_` character (underscore) to ignore plots in the layout (blank 
 # Examples
 
 ```jldoctest
-julia> @layout([a b; c])
+julia> @layout [a b; c]
 2×1 Matrix{Any}:
  Any[(label = :a, blank = false) (label = :b, blank = false)]
  (label = :c, blank = false)
@@ -589,7 +590,7 @@ julia> @layout [a{0.3w}; b{0.2h}]
  (label = :a, width = 0.3, height = :auto)
  (label = :b, width = :auto, height = 0.2)
 
-julia> @layout([_ ° _; ° ° °; ° ° °])
+julia> @layout [_ ° _; ° ° °; ° ° °]
 3×3 Matrix{Any}:
  (label = :_, blank = true)   …  (label = :_, blank = true)
  (label = :°, blank = false)     (label = :°, blank = false)
@@ -600,6 +601,26 @@ julia> @layout([_ ° _; ° ° °; ° ° °])
 macro layout(mat::Expr)
     create_grid(mat)
 end
-include("precompile.jl")
 
-end # module
+@precompile_setup begin
+    struct __RecipesBasePrecompileType end
+    @precompile_all_calls begin
+        @layout [a b; c]
+        @layout [a{0.3w}; b{0.2h}]
+        @layout [_ ° _; ° ° °; ° ° °]
+        # @userplot __RecipesBasePrecompileType  # fails (export statements)
+        @recipe f(::__RecipesBasePrecompileType) = begin
+            @series begin
+                markershape --> :auto, :require
+                markercolor --> customcolor, :force
+                xrotation --> 5
+                zrotation --> 6, :quiet
+                fillcolor := :green
+                ones(1)
+            end
+            zeros(1)
+        end
+    end
+end
+
+end
