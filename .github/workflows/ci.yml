@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.0'  # lowest declared compat in `Project.toml`
+          - '1.6'  # lowest declared compat in `Project.toml` - lastest LTS
           - '1'
         os: [ubuntu-latest, windows-latest, macOS-latest]
         arch: [x64]
