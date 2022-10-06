@@ -1,3 +1,5 @@
+# WARNING: `RecipesBase` now lives in https://github.com/JuliaPlots/Plots.jl/tree/master/RecipesBase, please open issues in [here](https://github.com/JuliaPlots/Plots.jl/issues) and PRs in [here](https://github.com/JuliaPlots/Plots.jl/pulls).
+
 # RecipesBase
 
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaPlots.github.io/RecipesBase.jl/stable)
