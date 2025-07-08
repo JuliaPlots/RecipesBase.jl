@@ -1,4 +1,4 @@
-# WARNING: `RecipesBase` now lives in https://github.com/JuliaPlots/Plots.jl/tree/master/RecipesBase, please open issues [here](https://github.com/JuliaPlots/Plots.jl/issues) and PRs [here](https://github.com/JuliaPlots/Plots.jl/pulls).
+# ⚠️ WARNING: `RecipesBase` now lives in [Plots.jl](https://github.com/JuliaPlots/Plots.jl/tree/master/RecipesBase), please open issues [here](https://github.com/JuliaPlots/Plots.jl/issues) and PRs [here](https://github.com/JuliaPlots/Plots.jl/pulls). ⚠️
 
 # RecipesBase
 
